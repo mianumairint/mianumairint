@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-body;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-headline;
+  }
+}
+
+@layer components {
+  .mineral-glow {
+    background: linear-gradient(135deg, #8f473e 0%, #ad5e55 100%);
+  }
+  .mineral-glow:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+    transition: all 0.3s ease;
+  }
+
+  .glass-nav {
+    background: rgba(251, 249, 248, 0.70);
+    backdrop-filter: blur(12px);
+  }
+
+  .tonal-shadow {
+    box-shadow: 0px 20px 40px rgba(143, 71, 62, 0.06);
+  }
+
+  .ghost-border {
+    outline: 1px solid rgba(217, 193, 190, 0.15);
+  }
+
+  .salt-chip {
+    @apply bg-secondary-container text-on-secondary-container rounded-full px-4 py-1.5 font-label text-xs uppercase tracking-widest;
+  }
+
+  .section-alt {
+    @apply bg-surface-container-low;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Material Symbols */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* WhatsApp pulse */
+@keyframes whatsapp-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(37, 211, 102, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+  }
+}
+
+.whatsapp-pulse {
+  animation: whatsapp-pulse 2s infinite;
+}
+
+/* Cart badge pulse */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.badge-pulse {
+  animation: badge-pulse 0.3s ease-in-out;
+}
+
+/* Hide scrollbar for filter chips */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* CMS rich-text output (Tiptap HTML rendered on public pages) */
+.cms-richtext h2 {
+  @apply font-headline text-2xl text-on-surface mt-8 mb-3;
+}
+.cms-richtext h3 {
+  @apply font-headline text-xl text-on-surface mt-6 mb-2;
+}
+.cms-richtext p {
+  @apply mb-4 leading-relaxed;
+}
+.cms-richtext ul {
+  @apply list-disc pl-6 mb-4 space-y-1;
+}
+.cms-richtext ol {
+  @apply list-decimal pl-6 mb-4 space-y-1;
+}
+.cms-richtext a {
+  @apply text-primary underline;
+}
+.cms-richtext blockquote {
+  @apply font-headline italic text-primary bg-primary-fixed/30 p-6 rounded-xl text-sm leading-relaxed my-6;
+}
+.cms-richtext img {
+  @apply rounded-xl my-6;
+}
+.cms-richtext strong {
+  @apply font-semibold text-on-surface;
+}
+
+/* Catalogue flipbook: light rolling off a sheet while it turns. The duration
+   matches TURN_MS in CatalogueBook.tsx. */
+@keyframes catalogue-sheet-shade {
+  0% { opacity: 0; }
+  45% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+.catalogue-sheet-shade {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 60%);
+  animation: catalogue-sheet-shade 760ms ease-in-out forwards;
+}
