@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
+import DunsNumber from "@/components/shared/DunsNumber";
 
 interface ContactFormData {
   name: string;
@@ -151,6 +152,8 @@ export default function LegacyContactPage() {
                   </a>
                 </div>
               </div>
+
+              <DunsNumber />
 
               {/* WhatsApp Chips */}
               <div className="space-y-3">

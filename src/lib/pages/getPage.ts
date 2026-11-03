@@ -6,6 +6,7 @@ import {
   type PageWithSections,
 } from "@/lib/db/pages";
 import type { PageDTO, PageSectionDTO, PageSectionType } from "@/types/page";
+import { fillDateTokensDeep } from "@/lib/company-age";
 
 // Share one anonymous CMS query between metadata and page rendering, and reuse
 // it across visits. Admin saves invalidate the matching tag immediately.
@@ -43,7 +44,7 @@ function toDTO(page: PageWithSections): PageDTO {
         type: section.type as PageSectionType,
         sortOrder: section.sortOrder,
         isVisible: section.isVisible,
-        data: (section.data as Record<string, any>) ?? {},
+        data: fillDateTokensDeep((section.data as Record<string, any>) ?? {}),
       })
     ),
   };

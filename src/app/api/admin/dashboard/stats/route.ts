@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/api/route";
-import { listRecentOrders, sumPaidRevenue } from "@/lib/db/orders";
+import { dailyPaidRevenue, listRecentOrders, sumPaidRevenue } from "@/lib/db/orders";
 import { getUserSupabase, selectCount } from "@/lib/supabase/server";
 import { TABLES } from "@/lib/supabase/types";
+
+// The dashboard polls this route, so it must always read live figures.
+export const dynamic = "force-dynamic";
 
 /** Row counts only: `head: true` transfers the count without the rows. */
 function countOf(table: string) {
@@ -20,6 +23,7 @@ export const GET = withAdmin("fetch stats", async () => {
     totalProducts,
     totalCustomers,
     recentOrders,
+    revenueByDay,
   ] = await Promise.all([
     sumPaidRevenue(),
     selectCount(countOf(TABLES.order).gte("createdAt", startOfMonth)),
@@ -27,6 +31,7 @@ export const GET = withAdmin("fetch stats", async () => {
     selectCount(countOf(TABLES.product).eq("isActive", true)),
     selectCount(countOf(TABLES.user).eq("role", "CUSTOMER")),
     listRecentOrders(),
+    dailyPaidRevenue(30),
   ]);
 
   return NextResponse.json({
@@ -36,5 +41,6 @@ export const GET = withAdmin("fetch stats", async () => {
     totalProducts,
     totalCustomers,
     recentOrders,
+    revenueByDay,
   });
 });

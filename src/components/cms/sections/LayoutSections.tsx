@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import TrustBar from "@/components/home/TrustBar";
+import DunsNumber from "@/components/shared/DunsNumber";
 
 /**
  * CMS-driven versions of the named layout sections. Markup is carried over
@@ -600,6 +601,8 @@ export function ContactDetailsSection({ data }: { data: Data }) {
           </div>
         </div>
       )}
+
+      <DunsNumber />
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import RevenueChart from "@/components/admin/RevenueChart";
+import RevenueChart, { type RevenuePoint } from "@/components/admin/RevenueChart";
+
+const REFRESH_MS = 30_000;
 import { formatCurrency, formatDate } from "@/lib/format";
 import { DASHBOARD_ORDER_STATUS_COLORS as statusColor } from "@/lib/constants/status";
 
@@ -87,39 +89,59 @@ export default function AdminDashboard() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingQuotes, setLoadingQuotes] = useState(true);
 
-  useEffect(() => {
-    // Fetch dashboard stats
-    fetch("/api/admin/dashboard/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        setStats({
-          totalRevenue: data.totalRevenue,
-          ordersThisMonth: data.ordersThisMonth,
-          pendingQuotes: data.pendingQuotes,
-          totalProducts: data.totalProducts,
-        });
-      })
-      .catch(console.error)
-      .finally(() => setLoadingStats(false));
+  const [revenueByDay, setRevenueByDay] = useState<RevenuePoint[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-    // Fetch recent orders
-    fetch("/api/admin/orders?limit=5")
-      .then((res) => res.json())
-      .then((data) => {
-        setRecentOrders(data.orders || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingOrders(false));
+  // Reloads every figure on the page. The first call shows skeletons; later
+  // refreshes swap numbers in place so the screen does not flicker.
+  const load = useCallback(async () => {
+    const json = (url: string) =>
+      fetch(url, { cache: "no-store" }).then((res) => {
+        if (!res.ok) throw new Error(`${url}: ${res.status}`);
+        return res.json();
+      });
 
-    // Fetch pending quotes
-    fetch("/api/admin/quotes?status=NEW&limit=5")
-      .then((res) => res.json())
-      .then((data) => {
-        setPendingQuotes(data.quotes || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingQuotes(false));
+    await Promise.allSettled([
+      json("/api/admin/dashboard/stats")
+        .then((data) => {
+          setStats({
+            totalRevenue: data.totalRevenue,
+            ordersThisMonth: data.ordersThisMonth,
+            pendingQuotes: data.pendingQuotes,
+            totalProducts: data.totalProducts,
+          });
+          setRevenueByDay(data.revenueByDay || []);
+        })
+        .catch(console.error)
+        .finally(() => setLoadingStats(false)),
+      json("/api/admin/orders?limit=5")
+        .then((data) => setRecentOrders(data.orders || []))
+        .catch(console.error)
+        .finally(() => setLoadingOrders(false)),
+      json("/api/admin/quotes?status=NEW&limit=5")
+        .then((data) => setPendingQuotes(data.quotes || []))
+        .catch(console.error)
+        .finally(() => setLoadingQuotes(false)),
+    ]);
+    setUpdatedAt(new Date());
   }, []);
+
+  useEffect(() => {
+    load();
+    // Poll while the tab is open, and refresh straight away when the admin
+    // comes back to it, so new orders and quotes appear without a reload.
+    const timer = setInterval(() => {
+      if (!document.hidden) load();
+    }, REFRESH_MS);
+    const onVisible = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   const statCards = stats
     ? [
@@ -152,7 +174,18 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-headline text-2xl text-on-surface">Dashboard</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="font-headline text-2xl text-on-surface">Dashboard</h1>
+        {updatedAt && (
+          <p className="flex items-center gap-2 font-label text-xs text-on-surface-variant">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-60 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            Live &middot; updated {updatedAt.toLocaleTimeString()}
+          </p>
+        )}
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -185,7 +218,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Revenue Chart */}
-      <RevenueChart />
+      <RevenueChart data={revenueByDay} loading={loadingStats} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
