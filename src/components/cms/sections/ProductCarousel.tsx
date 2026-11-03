@@ -21,7 +21,6 @@ export default function ProductCarousel({ data }: { data: Data }) {
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
   const [wiping, setWiping] = useState(false);
-  const [userPaused, setUserPaused] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
   const [visible, setVisible] = useState(true);
   const [inView, setInView] = useState(true);
@@ -36,7 +35,7 @@ export default function ProductCarousel({ data }: { data: Data }) {
   // Reduced motion only removes the wipe/zoom effects; it must not stop
   // autoplay. Many Android phones (e.g. Oppo/ColorOS with animations turned
   // off) report it, which used to freeze the carousel on the first slide.
-  const paused = userPaused || keyboardFocus || !visible || !inView;
+  const paused = keyboardFocus || !visible || !inView;
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 767px)");
@@ -195,7 +194,7 @@ export default function ProductCarousel({ data }: { data: Data }) {
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="relative flex min-h-[60svh] items-center pt-7 pb-24 md:absolute md:inset-0 md:min-h-0 md:py-20 pointer-events-none">
+        <div className="relative flex min-h-[60svh] items-end md:items-center pt-7 pb-20 md:absolute md:inset-0 md:min-h-0 md:py-20 pointer-events-none">
           <div className="max-w-7xl mx-auto w-full px-4 md:px-20 lg:px-24">
             <motion.div key={`copy-${index}`} dir="auto" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.45 }} className="hero-copy min-w-0 max-w-[85%] md:max-w-2xl pointer-events-auto">
               {data.eyebrow && <p className="font-label text-[10px] sm:text-xs uppercase tracking-[0.2em] text-white/70 mb-2 md:mb-4"><span>{data.eyebrow}</span></p>}
@@ -220,9 +219,6 @@ export default function ProductCarousel({ data }: { data: Data }) {
                 </div>
                 <div className="flex items-center gap-2 text-white/80">
                   <span className="font-label text-xs tabular-nums">{String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}</span>
-                  <button onClick={() => { setUserPaused((old) => !old); setKeyboardFocus(false); }} aria-label={userPaused ? "Resume slideshow" : "Pause slideshow"} aria-pressed={userPaused} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/15">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">{userPaused ? <path d="m8 5 11 7-11 7V5Z" /> : <path d="M6 5h4v14H6zm8 0h4v14h-4z" />}</svg>
-                  </button>
                 </div>
               </div>
             </div>

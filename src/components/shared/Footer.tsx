@@ -159,8 +159,8 @@ export default function Footer() {
           <p className="font-body text-xs leading-relaxed text-center sm:text-left text-on-surface-variant">
             &copy; {new Date().getFullYear()} Mian Umair International. All Rights Reserved.
           </p>
-          <p className="font-body text-xs text-on-surface-variant">
-            Faisalabad, Pakistan
+          <p className="font-body text-xs leading-relaxed text-center sm:text-right text-on-surface-variant">
+            383 Imran Plaza, Layalpur Warehouses, Factory Area, Faisalabad 38000, Punjab, Pakistan
           </p>
         </div>
       </div>
