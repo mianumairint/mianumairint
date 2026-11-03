@@ -1,61 +1,12 @@
-"use client";
+﻿"use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
-
-function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const isInView = useInView(ref, { once: true });
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (!isInView) return;
-    let start = 0;
-    const duration = 2000;
-    const increment = target / (duration / 16);
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
-    return () => clearInterval(timer);
-  }, [isInView, target]);
-
-  return (
-    <span ref={ref}>
-      {count}
-      {suffix}
-    </span>
-  );
-}
-
-/**
- * The catalogue figure is counted, not claimed: it is whatever the Products
- * table holds at the time of the request, so adding a line to the catalogue
- * moves it without anyone remembering to edit this file. `value: null` means
- * the count has not arrived yet, and that tile waits rather than counting up
- * from nothing to a number that is about to change.
- *
- * The other three are company facts the database does not know.
- */
-function statsFor(productCount: number | null) {
-  return [
-    { value: 30, suffix: "+", label: "Countries Exported To" },
-    { value: 1995, suffix: "", label: "Year Established" },
-    { value: productCount, suffix: "", label: "Products in Catalogue" },
-  ];
-}
+import { useEffect, useState } from "react";
 
 interface ExportMarket {
   id: string;
   country: string;
   city: string;
   flag: string;
-  since: string | null;
 }
 
 export default function ExportMapSection() {
@@ -63,98 +14,83 @@ export default function ExportMapSection() {
   const [loading, setLoading] = useState(true);
   const [productCount, setProductCount] = useState<number | null>(null);
 
-  // One row is asked for because the count rides along in the response; the
-  // product itself is thrown away.
   useEffect(() => {
-    fetch("/api/products?limit=1")
+    const controller = new AbortController();
+    fetch("/api/products?limit=1", { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.total === "number") setProductCount(data.total);
       })
       .catch(() => {});
+
+    fetch("/api/export-markets", { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => setCountries(data.markets || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    fetch("/api/export-markets")
-      .then((res) => res.json())
-      .then((data) => {
-        setCountries(data.markets || []);
-      })
-      .catch(() => {
-        setCountries([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  // Combine multiple cities in the same country into one market card.
+  const markets = Array.from(
+    countries.reduce((groups, market) => {
+      const key = market.country.trim().toLowerCase();
+      const group = groups.get(key) ?? { ...market, cities: new Set<string>() };
+      if (market.city?.trim()) group.cities.add(market.city.trim());
+      groups.set(key, group);
+      return groups;
+    }, new Map<string, ExportMarket & { cities: Set<string> }>()).values()
+  );
+
+  const stats = [
+    { value: "30+", label: "Countries Served" },
+    { value: "1995", label: "Established" },
+    { value: productCount, label: "Products" },
+  ];
 
   return (
-    <section className="py-20 px-6 max-w-7xl mx-auto">
-      {/* Heading */}
-      <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant text-center mb-3">
+    <section className="py-12 md:py-20 px-5 sm:px-6 max-w-7xl mx-auto" aria-labelledby="global-reach-heading">
+      <p className="font-label text-[10px] sm:text-xs uppercase tracking-widest text-on-surface-variant text-center mb-3">
         Trusted by Buyers Across 4 Continents
       </p>
-      <h2 className="font-headline text-4xl text-center text-on-surface mb-12">
+      <h2 id="global-reach-heading" className="font-headline text-3xl md:text-4xl text-center text-on-surface mb-8 md:mb-12">
         Our Global Reach
       </h2>
 
-      {/* A placeholder panel for a map that was never built used to sit here.
-          It carried no information, so the figures and the market list start
-          the section instead. */}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto">
-        {statsFor(productCount).map((stat) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="bg-surface-container-lowest rounded-xl tonal-shadow p-6 text-center"
-          >
-            <p className="font-headline text-4xl text-primary mb-1">
-              {stat.value === null ? (
-                <span className="inline-block w-16 h-8 rounded bg-surface-container animate-pulse align-middle" />
-              ) : (
-                <CountUp target={stat.value} suffix={stat.suffix} />
-              )}
-            </p>
-            <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">
+      <dl className="grid grid-cols-3 divide-x divide-outline-variant/40 bg-surface-container-low rounded-2xl py-6 mb-8 md:mb-12 max-w-4xl mx-auto">
+        {stats.map((stat) => (
+          <div key={stat.label} className="text-center px-2 sm:px-4">
+            <dt className="font-label text-[10px] sm:text-xs leading-relaxed uppercase tracking-wide text-on-surface-variant">
               {stat.label}
-            </p>
-          </motion.div>
+            </dt>
+            <dd translate="no" className="notranslate font-headline text-2xl sm:text-4xl text-primary mt-2">
+              {stat.value ?? <span aria-label="Loading product count" className="inline-block w-10 h-7 rounded bg-surface-container animate-pulse" />}
+            </dd>
+          </div>
         ))}
-      </div>
+      </dl>
 
-      {/* Country Chips */}
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        {loading && (
-          <>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <span
-                key={i}
-                className="salt-chip w-28 h-8 bg-surface-container animate-pulse rounded-full"
-              />
-            ))}
-          </>
-        )}
-        {/* The city is named alongside the country, because two of these are
-            the United States -- Dallas and California -- and on the country
-            alone the row read as the same market listed twice. */}
-        {!loading &&
-          countries.map((c) => (
-            <span key={c.id} className="salt-chip">
-              {c.flag} {c.country}
-              {c.city && (
-                <span className="text-on-surface-variant/70"> · {c.city}</span>
-              )}
+      <ul className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-5xl mx-auto" aria-label="Export destinations" aria-busy={loading}>
+        {loading && [0, 1, 2, 3, 4, 5].map((i) => (
+          <li key={i} aria-hidden="true" className="h-24 bg-surface-container rounded-xl animate-pulse" />
+        ))}
+        {!loading && markets.map((market) => (
+          <li key={market.country} className="min-w-0 bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-4 sm:p-5 flex items-start gap-3">
+            <span translate="no" aria-hidden="true" className="notranslate shrink-0 w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-label text-xs font-semibold">
+              {market.flag ? market.flag.toUpperCase() : <span className="material-symbols-outlined text-lg">public</span>}
             </span>
-          ))}
-        {!loading && countries.length === 0 && (
-          <p className="text-on-surface-variant font-body text-sm">
-            Export market data coming soon.
-          </p>
-        )}
-      </div>
+            <div className="min-w-0">
+              <h3 className="font-body text-sm sm:text-base font-semibold leading-snug text-on-surface">{market.country}</h3>
+              {market.cities.size > 0 && (
+                <p className="font-body text-xs sm:text-sm text-on-surface-variant leading-relaxed mt-1">{Array.from(market.cities).join(" · ")}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!loading && markets.length === 0 && (
+        <p className="text-center text-on-surface-variant font-body text-sm">Export market data coming soon.</p>
+      )}
     </section>
   );
 }

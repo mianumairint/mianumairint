@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ApiError, withAdmin } from "@/lib/api/route";
 import {
   getPageById,
@@ -37,6 +37,7 @@ export const PUT = withAdmin<{ id: string }>("save sections", async (req, { para
   const updated = await getPageByIdForAdmin(page.id);
 
   // Published content is cached -- drop the cached render for this URL.
+  revalidateTag(`page:${page.slug}`);
   revalidatePath(page.slug);
 
   return NextResponse.json({ page: updated });

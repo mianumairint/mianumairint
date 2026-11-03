@@ -1,5 +1,6 @@
 import {
   getSupabase,
+  getContentSupabase,
   getUserSupabase,
   mutate,
   mutateOne,
@@ -50,7 +51,7 @@ export async function getPublishedPageBySlug(slug: string): Promise<PageWithSect
  */
 export async function getPageBySlug(slug: string): Promise<PageWithSections | null> {
   return selectOne<PageWithSections>(
-    getSupabase()
+    getContentSupabase()
       .from(TABLES.page)
       .select(WITH_SECTIONS)
       .eq("slug", slug)

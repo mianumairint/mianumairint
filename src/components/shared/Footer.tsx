@@ -30,27 +30,27 @@ const companyLinks = [
 export default function Footer() {
   return (
     <footer className="bg-surface-container-low">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-10 md:py-16">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-8 md:gap-10">
           {/* Brand */}
-          <div>
+          <div className="col-span-2 md:col-span-3 xl:col-span-1 min-w-0">
             <h3 className="font-headline text-xl text-primary font-bold">
               Mian Umair International
             </h3>
             <p className="font-body text-sm text-on-surface-variant mt-2 leading-relaxed">
               Exporting Earth&apos;s Purest Mineral Since 1995
             </p>
-            <div className="flex items-center gap-4 mt-6 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
-              <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+            <div translate="no" aria-label="Quality certifications" className="notranslate flex flex-wrap items-center gap-3 mt-5">
+              <span className="font-label text-base font-bold uppercase tracking-wide text-primary">
                 ISO
               </span>
-              <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+              <span className="font-label text-base font-bold uppercase tracking-wide text-primary">
                 Halal
               </span>
-              <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+              <span className="font-label text-base font-bold uppercase tracking-wide text-primary">
                 PCSIR
               </span>
-              <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+              <span className="font-label text-base font-bold uppercase tracking-wide text-primary">
                 GMP
               </span>
             </div>
@@ -59,12 +59,12 @@ export default function Footer() {
           {/* Products */}
           <div>
             <h4 className="font-headline text-base font-bold text-on-surface mb-4">Products</h4>
-            <ul className="space-y-2.5">
+            <ul className="space-y-1">
               {categories.map((cat) => (
                 <li key={cat.href}>
                   <Link
                     href={cat.href}
-                    className="font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
+                    className="inline-flex items-center min-h-10 py-1 font-body text-sm leading-relaxed text-on-surface-variant hover:text-primary transition-colors"
                   >
                     {cat.label}
                   </Link>
@@ -76,12 +76,12 @@ export default function Footer() {
           {/* Company */}
           <div>
             <h4 className="font-headline text-base font-bold text-on-surface mb-4">Company</h4>
-            <ul className="space-y-2.5">
+            <ul className="space-y-1">
               {companyLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
+                    className="inline-flex items-center min-h-10 py-1 font-body text-sm leading-relaxed text-on-surface-variant hover:text-primary transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -91,26 +91,26 @@ export default function Footer() {
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="col-span-2 md:col-span-1 min-w-0 border-t border-outline-variant/40 pt-6 md:border-0 md:pt-0">
             <h4 className="font-headline text-base font-bold text-on-surface mb-4">Get in Touch</h4>
             <div className="space-y-3">
               <a
                 href="tel:+923207550055"
-                className="flex items-center gap-2 font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
+                className="flex items-center gap-2 min-h-10 font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">phone</span>
                 +92-320-755-0055
               </a>
               <a
                 href="tel:+14372259136"
-                className="flex items-center gap-2 font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
+                className="flex items-center gap-2 min-h-10 font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">phone</span>
                 +1-437-225-9136
               </a>
               <a
                 href="mailto:info@mianumairint.com"
-                className="flex items-center gap-2 font-body text-sm text-on-surface-variant hover:text-primary transition-colors"
+                className="flex items-center gap-2 min-h-10 font-body text-sm break-all text-on-surface-variant hover:text-primary transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">mail</span>
                 info@mianumairint.com
@@ -137,10 +137,12 @@ export default function Footer() {
                 <input
                   type="email"
                   placeholder="Your email"
-                  className="flex-1 bg-transparent border-b border-outline-variant text-sm font-body py-2 px-0 focus:outline-none focus:border-primary text-on-surface placeholder:text-on-surface-variant/50"
+                  aria-label="Email address for newsletter"
+                  className="min-w-0 flex-1 bg-transparent border-b border-outline-variant text-sm font-body py-2 px-0 focus:outline-none focus:border-primary text-on-surface placeholder:text-on-surface-variant/50"
                 />
                 <button
                   type="submit"
+                  aria-label="Subscribe to newsletter"
                   className="ml-2 p-2 text-primary hover:bg-surface-container rounded-xl transition-colors"
                 >
                   <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
@@ -152,10 +154,10 @@ export default function Footer() {
       </div>
 
       {/* Copyright */}
-      <div className="bg-surface-container py-4">
+      <div className="bg-surface-container pt-4 pb-24 md:pb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="font-body text-xs text-on-surface-variant">
-            &copy; 2025 Mian Umair International. All Rights Reserved.
+          <p className="font-body text-xs leading-relaxed text-center sm:text-left text-on-surface-variant">
+            &copy; {new Date().getFullYear()} Mian Umair International. All Rights Reserved.
           </p>
           <p className="font-body text-xs text-on-surface-variant">
             Faisalabad, Pakistan

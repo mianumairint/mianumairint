@@ -1,11 +1,20 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import {
   getPageBySlug,
-  getPublishedPageBySlug,
-  getPublishedPageSeo,
   listPublishedCustomSlugs,
   type PageWithSections,
 } from "@/lib/db/pages";
 import type { PageDTO, PageSectionDTO, PageSectionType } from "@/types/page";
+
+// Share one anonymous CMS query between metadata and page rendering, and reuse
+// it across visits. Admin saves invalidate the matching tag immediately.
+const loadPublicPage = cache((slug: string) =>
+  unstable_cache(() => getPageBySlug(slug), ["public-page", slug], {
+    revalidate: 60,
+    tags: [`page:${slug}`],
+  })()
+);
 
 /**
  * SERVER-SIDE PAGE LOADER
@@ -43,8 +52,8 @@ function toDTO(page: PageWithSections): PageDTO {
 /** Published page by slug, visible sections only. Null if missing/draft/DB down. */
 export async function getPublishedPage(slug: string): Promise<PageDTO | null> {
   try {
-    const page = await getPublishedPageBySlug(slug);
-    return page ? toDTO(page) : null;
+    const page = await loadPublicPage(slug);
+    return page?.status === "PUBLISHED" ? toDTO(page) : null;
   } catch (error) {
     console.error(`getPublishedPage("${slug}") failed:`, error);
     return null;
@@ -71,7 +80,7 @@ export type SystemPageResolution =
 
 export async function resolveSystemPage(slug: string): Promise<SystemPageResolution> {
   try {
-    const page = await getPageBySlug(slug);
+    const page = await loadPublicPage(slug);
 
     // Never imported -- keep serving the existing hardcoded page.
     if (!page) return { mode: "fallback" };
@@ -108,8 +117,8 @@ export async function getPageSeo(
   slug: string
 ): Promise<{ title: string; description: string | null } | null> {
   try {
-    const page = await getPublishedPageSeo(slug);
-    if (!page) return null;
+    const page = await loadPublicPage(slug);
+    if (!page || page.status !== "PUBLISHED") return null;
     return {
       title: page.seoTitle?.trim() || page.title,
       description: page.seoDesc?.trim() || null,

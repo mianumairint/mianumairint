@@ -1,377 +1,232 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
-
-/**
- * PRODUCT_BANNERS
- * ===============
- * The company's product banners, as the full-screen carousel at the top of the
- * home page. Stacked, fourteen full-width photographs pushed everything else
- * below the fold, so they take turns instead.
- *
- * Slides change with a distortion wipe, matching the transition the company
- * uses on its own site: the two photographs are pushed through a turbulence
- * displacement filter whose strength rises and falls across the change, so one
- * image appears to ripple into the other.
- *
- * The filter is attached only while a slide is changing. feTurbulence is
- * expensive, and leaving it on a full-screen element would cost every frame of
- * every scroll for an effect nobody is looking at.
- *
- * It advances on its own and pauses while the pointer is over it, so a reader
- * is never dragged off the slide they are looking at. Arrows, dots and the
- * left/right keys all drive it.
- */
+import { motion, useReducedMotion } from "framer-motion";
 
 type Data = Record<string, any>;
-
-const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
-
-/**
- * The incoming slide has to be hidden before the browser paints it, or it
- * flashes at full strength for a frame before the ripple starts. That needs a
- * layout effect, which React does not run while rendering on the server.
- */
 const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+const SLIDE_MS = 4500;
 
-const SLIDE_MS = 6000;
-const WIPE_MS = 1100;
-
-/** How far pixels are pushed at the peak of the ripple. */
-const DISPLACEMENT_PEAK = 110;
-
-/**
- * A whole screen. The carousel is pulled up under the floating header by
- * PageRenderer when it starts a page, so it is the full viewport rather than
- * the viewport minus the header.
- */
-const FULL_SCREEN = "h-screen min-h-[520px]";
-
+/** A ready slide stays visible while the next photograph downloads. Touching
+ * controls never leaves autoplay stuck in a synthetic mouse-hover state. */
 export default function ProductCarousel({ data }: { data: Data }) {
-  const items = asArray(data.items);
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [wiping, setWiping] = useState(false);
-
-  // Which photographs have actually arrived. Every slide is a separate remote
-  // file, so without this the ripple runs while the new one is still on the
-  // wire and all it does is distort the picture it is meant to be replacing.
-  const [loaded, setLoaded] = useState<ReadonlySet<string>>(() => new Set());
-  const loadedRef = useRef(loaded);
-  loadedRef.current = loaded;
-
-  const markLoaded = useCallback((src: string) => {
-    setLoaded((previous) => {
-      if (previous.has(src)) return previous;
-      const next = new Set(previous);
-      next.add(src);
-      return next;
-    });
-  }, []);
-
-  const filterId = `distort-${useId().replace(/[:]/g, "")}`;
-
-  // The slide being replaced. It stays on screen underneath while the new one
-  // ripples in, so the area never flashes empty mid-change.
-  const previous = useRef<Data | null>(null);
-
-  // `items` is rebuilt on every render, so it is read through a ref to keep
-  // the callbacks below stable. Depending on the array directly rebuilt them
-  // each render, which restarted the timer and meant the carousel never
-  // advanced on its own.
+  const items: Data[] = Array.isArray(data.items) ? data.items : [];
+  const count = items.length;
   const itemsRef = useRef(items);
   itemsRef.current = items;
-
-  const displacement = useRef<SVGFEDisplacementMapElement>(null);
+  const [index, setIndex] = useState(0);
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState<ReadonlySet<string>>(() => new Set());
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const [wiping, setWiping] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const [keyboardFocus, setKeyboardFocus] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [inView, setInView] = useState(true);
+  const [mobile, setMobile] = useState(true);
+  const reducedMotion = useReducedMotion();
+  const root = useRef<HTMLElement>(null);
+  const previous = useRef<Data | null>(null);
   const incoming = useRef<HTMLDivElement>(null);
+  const displacement = useRef<SVGFEDisplacementMapElement>(null);
   const frame = useRef<number>();
+  const filterId = `distort-${useId().replace(/:/g, "")}`;
+  // Reduced motion only removes the wipe/zoom effects; it must not stop
+  // autoplay. Many Android phones (e.g. Oppo/ColorOS with animations turned
+  // off) report it, which used to freeze the carousel on the first slide.
+  const paused = userPaused || keyboardFocus || !visible || !inView;
 
-  const count = items.length;
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const updateSize = () => setMobile(query.matches);
+    const updateVisibility = () => setVisible(!document.hidden);
+    updateSize();
+    updateVisibility();
+    query.addEventListener("change", updateSize);
+    document.addEventListener("visibilitychange", updateVisibility);
+    const observer = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting), { threshold: 0.1 }
+    );
+    if (root.current) observer?.observe(root.current);
+    return () => {
+      query.removeEventListener("change", updateSize);
+      document.removeEventListener("visibilitychange", updateVisibility);
+      observer?.disconnect();
+      cancelAnimationFrame(frame.current ?? 0);
+    };
+  }, []);
 
-  /** Runs the ripple and the cross-fade together, frame by frame. */
+  const markLoaded = useCallback((src: string) => {
+    setLoaded((old) => old.has(src) ? old : new Set([...old, src]));
+  }, []);
+  const markFailed = useCallback((src: string) => {
+    setFailed((old) => old.has(src) ? old : new Set([...old, src]));
+  }, []);
+
+  const playableIndex = useCallback((next: number) => {
+    for (let step = 0; step < count; step++) {
+      const candidate = ((next + step) % count + count) % count;
+      const src = itemsRef.current[candidate]?.image;
+      if (!src || !failed.has(src)) return candidate;
+    }
+    return null;
+  }, [count, failed]);
+
+  const go = useCallback((next: number) => {
+    const candidate = playableIndex(next);
+    setPendingIndex(candidate === index ? null : candidate);
+  }, [index, playableIndex]);
+
+  // If a timer expires while an image is downloading, its onLoad commits the
+  // pending slide immediately, instead of waiting another complete interval.
+  useEffect(() => {
+    if (pendingIndex === null || wiping) return;
+    const src = itemsRef.current[pendingIndex]?.image;
+    if (src && failed.has(src)) {
+      go(pendingIndex + 1);
+    } else if (!src || loaded.has(src)) {
+      previous.current = itemsRef.current[index] ?? null;
+      setIndex(pendingIndex);
+      setPendingIndex(null);
+    }
+  }, [pendingIndex, loaded, failed, wiping, index, go]);
+
+  useEffect(() => {
+    if (count > 1 && failed.has(itemsRef.current[index]?.image) && pendingIndex === null) go(index + 1);
+  }, [failed, count, index, pendingIndex, go]);
+
   const runWipe = useCallback(() => {
+    cancelAnimationFrame(frame.current ?? 0);
+    if (reducedMotion) {
+      if (incoming.current) incoming.current.style.opacity = "1";
+      setWiping(false);
+      return;
+    }
+    const duration = mobile ? 850 : 1000;
+    const peak = mobile ? 45 : 110;
     const started = performance.now();
     setWiping(true);
-
     const step = (now: number) => {
-      const t = Math.min((now - started) / WIPE_MS, 1);
-
-      // Up and back down, so the slide is undistorted at both ends.
-      displacement.current?.setAttribute(
-        "scale",
-        String(Math.sin(t * Math.PI) * DISPLACEMENT_PEAK)
-      );
-      // Held back until the ripple is underway, so the swap happens inside the
-      // distortion rather than before it.
-      if (incoming.current) {
-        incoming.current.style.opacity = String(Math.min(Math.max((t - 0.2) / 0.5, 0), 1));
-      }
-
-      if (t < 1) {
-        frame.current = requestAnimationFrame(step);
-      } else {
+      const t = Math.min((now - started) / duration, 1);
+      displacement.current?.setAttribute("scale", String(Math.sin(t * Math.PI) * peak));
+      if (incoming.current) incoming.current.style.opacity = String(Math.min(Math.max((t - 0.15) / 0.65, 0), 1));
+      if (t < 1) frame.current = requestAnimationFrame(step);
+      else {
         displacement.current?.setAttribute("scale", "0");
+        if (incoming.current) incoming.current.style.opacity = "1";
         setWiping(false);
       }
     };
-
     frame.current = requestAnimationFrame(step);
-  }, []);
+  }, [mobile, reducedMotion]);
 
-  const advanceTo = useCallback(
-    (resolve: (current: number) => number) => {
-      setIndex((current) => {
-        const next = ((resolve(current) % count) + count) % count;
-        if (next === current) return current;
-        previous.current = itemsRef.current[current] ?? null;
-        return next;
-      });
-    },
-    [count]
-  );
-
-  const go = useCallback((next: number) => advanceTo(() => next), [advanceTo]);
-
-  // The wipe is started here rather than from the click, because the incoming
-  // slide only exists once the new index has rendered -- and it is a layout
-  // effect so the slide is hidden before that render reaches the screen.
-  const mounted = useRef(false);
-
+  const displayedIndex = useRef(index);
   useBeforePaint(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
-    }
+    if (displayedIndex.current === index) return;
+    displayedIndex.current = index;
     if (incoming.current) incoming.current.style.opacity = "0";
     runWipe();
   }, [index, runWipe]);
 
-  useEffect(() => () => cancelAnimationFrame(frame.current ?? 0), []);
-
+  const current = items[index];
+  const currentReady = !current?.image || loaded.has(current.image);
   useEffect(() => {
-    if (paused || count < 2) return;
-    const timer = setInterval(
-      () =>
-        advanceTo((current) => {
-          const next = current + 1;
-          const src = itemsRef.current[next % count]?.image;
-          // Stay put and try again on the next tick. With the two neighbours
-          // preloaded below, this almost never has to.
-          return !src || loadedRef.current.has(src) ? next : current;
-        }),
-      SLIDE_MS
-    );
-    return () => clearInterval(timer);
-  }, [paused, count, advanceTo]);
-
-  useEffect(() => {
-    if (count < 2) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "ArrowLeft") go(index - 1);
-      if (event.key === "ArrowRight") go(index + 1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, count, go]);
+    if (count < 2 || paused || wiping || pendingIndex !== null || !currentReady) return;
+    const timer = setTimeout(() => go(index + 1), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [index, count, paused, wiping, pendingIndex, currentReady, go]);
 
   if (!count) return null;
-
-  const current = items[index];
   const behind = previous.current;
-
-  // The slides either side, deduped by source so a repeated photograph is not
-  // fetched twice.
-  const neighbours =
-    count > 1
-      ? Array.from(
-          new Map(
-            [index + 1, index - 1]
-              .map((i) => items[((i % count) + count) % count])
-              .filter((item: Data) => item?.image && item.image !== current.image)
-              .map((item: Data) => [item.image as string, item] as const)
-          ).values()
-        )
-      : [];
+  const nextIndex = playableIndex(index + 1);
+  const preloads = Array.from(new Set([nextIndex, pendingIndex]))
+    .filter((i): i is number => i !== null && i !== index)
+    .map((i) => items[i])
+    .filter((item) => item?.image && item.image !== current.image && !failed.has(item.image));
 
   return (
     <section
-      className="relative bg-surface-container-lowest overflow-hidden"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      ref={root}
+      className="product-carousel relative bg-surface-container-lowest overflow-hidden"
       aria-roledescription="carousel"
       aria-label={data.heading || "Products"}
+      aria-busy={pendingIndex !== null}
+      onFocusCapture={(event) => setKeyboardFocus(event.target.matches(":focus-visible"))}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setKeyboardFocus(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.target instanceof HTMLElement && event.target.closest("input,textarea,select")) return;
+        if (event.key === "ArrowLeft") { event.preventDefault(); go(index - 1); }
+        if (event.key === "ArrowRight") { event.preventDefault(); go(index + 1); }
+      }}
     >
       <svg className="absolute w-0 h-0" aria-hidden="true">
-        <filter id={filterId} x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.012 0.018"
-            numOctaves={2}
-            seed={7}
-            result="noise"
-          />
-          <feDisplacementMap
-            ref={displacement}
-            in="SourceGraphic"
-            in2="noise"
-            scale={0}
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
+        <defs>
+          <filter id={filterId} x="-10%" y="-10%" width="120%" height="120%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves={mobile ? 1 : 2} seed={7} result="noise" />
+            <feDisplacementMap ref={displacement} in="SourceGraphic" in2="noise" scale={0} xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
       </svg>
-
-      <div className={`relative ${FULL_SCREEN}`}>
-        <div
-          className="absolute inset-0"
-          style={wiping ? { filter: `url(#${filterId})` } : undefined}
-        >
-          {/* The slide being replaced, held still underneath. */}
+      <div className="relative min-h-[60svh] md:h-screen md:min-h-[520px]">
+        <div className="absolute inset-0" style={wiping && !reducedMotion ? { filter: `url(#${filterId})`, willChange: "filter" } : undefined}>
           {behind?.image && (
             <div className="absolute inset-0">
-              <Image
-                src={behind.image}
-                alt=""
-                fill
-                sizes="100vw"
-                aria-hidden="true"
-                className="object-cover"
-              />
+              <Image src={behind.image} alt="" fill sizes="100vw" aria-hidden="true" className="object-cover" />
             </div>
           )}
-
-          {/* The incoming slide. Its opacity is driven imperatively during the
-              wipe and deliberately not declared in JSX: React would reset it on
-              the re-render that ends the transition, and the slide would vanish
-              the moment the ripple finished. */}
           {current.image && (
             <div ref={incoming} className="absolute inset-0">
-              {/* A slow drift while the slide is held, so it reads as a
-                  photograph being looked at rather than a static billboard. */}
-              <motion.div
-                key={index}
-                className="absolute inset-0"
-                initial={{ scale: 1.08 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: SLIDE_MS / 1000, ease: "linear" }}
-              >
-                <Image
-                  src={current.image}
-                  alt={current.title || ""}
-                  fill
-                  sizes="100vw"
-                  priority={index === 0}
-                  onLoad={() => markLoaded(current.image)}
-                  className="object-cover"
-                />
+              <motion.div key={index} className="absolute inset-0" initial={{ scale: reducedMotion || mobile ? 1 : 1.04 }} animate={{ scale: 1 }} transition={{ duration: SLIDE_MS / 1000, ease: "linear" }}>
+                <Image src={current.image} alt={current.title || ""} fill sizes="100vw" priority={index === 0} onLoad={() => markLoaded(current.image)} onError={() => markFailed(current.image)} className="object-cover" />
               </motion.div>
             </div>
           )}
         </div>
-
-        {/* Fetched now and parked out of sight, so a change never waits on
-            the network. Kept at a pixel rather than hidden outright: a
-            display:none image is not guaranteed to be loaded at all. */}
-        {neighbours.length > 0 && (
-          <div
-            aria-hidden="true"
-            className="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none"
-          >
-            {neighbours.map((item: Data) => (
-              <Image
-                key={item.image}
-                src={item.image}
-                alt=""
-                fill
-                sizes="100vw"
-                onLoad={() => markLoaded(item.image)}
-              />
+        {preloads.length > 0 && (
+          <div aria-hidden="true" className="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none">
+            {preloads.map((item) => (
+              <Image key={item.image} src={item.image} alt="" fill sizes="100vw" loading="eager" fetchPriority={pendingIndex !== null ? "high" : "low"} onLoad={() => markLoaded(item.image)} onError={() => markFailed(item.image)} />
             ))}
           </div>
         )}
-
-        {/* Above the photographs and outside the filter, so the copy stays
-            sharp and legible right through the change. */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-
-        <div className="absolute inset-0 flex items-center pointer-events-none">
-          <div className="max-w-7xl mx-auto w-full px-6 lg:px-8">
-            <motion.div
-              key={`copy-${index}`}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.35 }}
-              className="max-w-2xl pointer-events-auto"
-            >
-              {data.eyebrow && (
-                <p className="font-label text-[11px] sm:text-xs uppercase tracking-[0.3em] text-white/70 mb-4">
-                  {data.eyebrow}
-                </p>
-              )}
-              <h2 className="font-headline text-5xl sm:text-7xl lg:text-8xl leading-[1.02] text-white">
-                {current.title}
-              </h2>
-              {current.subtitle && (
-                <p className="font-body text-sm sm:text-lg text-white/80 mt-5 max-w-lg">
-                  {current.subtitle}
-                </p>
-              )}
-              {current.href && (
-                <Link
-                  href={current.href}
-                  className="mineral-glow text-on-primary font-label text-sm uppercase tracking-widest px-9 py-3.5 rounded-full inline-block mt-9"
-                >
-                  {current.ctaLabel || "View Product"}
-                </Link>
-              )}
+        <div className="relative flex min-h-[60svh] items-center pt-7 pb-24 md:absolute md:inset-0 md:min-h-0 md:py-20 pointer-events-none">
+          <div className="max-w-7xl mx-auto w-full px-4 md:px-20 lg:px-24">
+            <motion.div key={`copy-${index}`} dir="auto" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.45 }} className="hero-copy min-w-0 max-w-[85%] md:max-w-2xl pointer-events-auto">
+              {data.eyebrow && <p className="font-label text-[10px] sm:text-xs uppercase tracking-[0.2em] text-white/70 mb-2 md:mb-4"><span>{data.eyebrow}</span></p>}
+              <h2 className="font-headline text-[clamp(1.35rem,5vw,2.25rem)] md:text-6xl lg:text-7xl xl:text-8xl leading-[1.12] text-white"><span>{current.title}</span></h2>
+              {current.subtitle && <p className="font-body text-[11px] md:text-lg text-white/80 mt-2 md:mt-5 max-w-lg"><span>{current.subtitle}</span></p>}
+              {current.href && <Link href={current.href} className="mineral-glow text-on-primary font-label text-xs md:text-sm uppercase tracking-widest px-6 md:px-9 py-3 md:py-3.5 rounded-full inline-block mt-4 md:mt-9"><span>{current.ctaLabel || "View Product"}</span></Link>}
             </motion.div>
           </div>
         </div>
-
         {count > 1 && (
-          <>
-            <button
-              onClick={() => go(index - 1)}
-              aria-label="Previous product"
-              className="absolute left-3 lg:left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full border border-white/25 bg-black/25 backdrop-blur-sm hover:bg-black/50 text-white flex items-center justify-center transition-colors"
-            >
-              <span className="material-symbols-outlined">chevron_left</span>
+          <div className="notranslate" translate="no" dir="ltr">
+            <button onClick={() => go(index - 1)} aria-label="Previous product" className="absolute left-4 bottom-4 md:bottom-auto md:left-3 lg:left-8 md:top-1/2 md:-translate-y-1/2 w-11 h-11 md:w-12 md:h-12 rounded-full border border-white/25 bg-black/25 backdrop-blur-sm hover:bg-black/50 text-white flex items-center justify-center">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="m14 6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <button
-              onClick={() => go(index + 1)}
-              aria-label="Next product"
-              className="absolute right-3 lg:right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full border border-white/25 bg-black/25 backdrop-blur-sm hover:bg-black/50 text-white flex items-center justify-center transition-colors"
-            >
-              <span className="material-symbols-outlined">chevron_right</span>
+            <button onClick={() => go(index + 1)} aria-label="Next product" className="absolute right-4 bottom-4 md:bottom-auto md:right-3 lg:right-8 md:top-1/2 md:-translate-y-1/2 w-11 h-11 md:w-12 md:h-12 rounded-full border border-white/25 bg-black/25 backdrop-blur-sm hover:bg-black/50 text-white flex items-center justify-center">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="m10 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-
-            {/* Centred, and shaped the way a phone gallery does it: the slide
-                you are on is a bar, everything else is a dot. */}
-            <div className="absolute bottom-10 left-0 right-0 px-6">
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center justify-center gap-2 flex-wrap max-w-full">
-                  {items.map((item: Data, i: number) => (
-                    <button
-                      key={item.title || i}
-                      onClick={() => go(i)}
-                      aria-label={`Show ${item.title}`}
-                      aria-current={i === index}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        i === index ? "w-8 bg-white" : "w-1.5 bg-white/45 hover:bg-white/75"
-                      }`}
-                    />
-                  ))}
+            <div className="absolute bottom-3 md:bottom-8 left-16 right-16 md:left-20 md:right-20">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center justify-center gap-1 flex-wrap max-w-full">
+                  {items.map((item, i) => <button key={i} onClick={() => go(i)} aria-label={`Show ${item.title}`} aria-current={i === index} className={`h-5 flex items-center justify-center ${i === index ? "w-8" : "w-3"}`}><span className={`h-1.5 rounded-full transition-all ${i === index ? "w-8 bg-white" : "w-1.5 bg-white/50"}`} /></button>)}
                 </div>
-                <span className="font-label text-xs text-white/70 tabular-nums">
-                  {String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}
-                </span>
+                <div className="flex items-center gap-2 text-white/80">
+                  <span className="font-label text-xs tabular-nums">{String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}</span>
+                  <button onClick={() => { setUserPaused((old) => !old); setKeyboardFocus(false); }} aria-label={userPaused ? "Resume slideshow" : "Pause slideshow"} aria-pressed={userPaused} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/15">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">{userPaused ? <path d="m8 5 11 7-11 7V5Z" /> : <path d="M6 5h4v14H6zm8 0h4v14h-4z" />}</svg>
+                  </button>
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </section>

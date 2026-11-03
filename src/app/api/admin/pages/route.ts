@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ApiError, withAdmin } from "@/lib/api/route";
 import { createPage, listPagesForAdmin, slugExists } from "@/lib/db/pages";
 import { validateSlug } from "@/lib/pages/slug";
@@ -31,6 +31,7 @@ export const POST = withAdmin("create page", async (req) => {
     seoDesc: seoDesc?.trim() || null,
   });
 
+  revalidateTag(`page:${page.slug}`);
   if (page.status === "PUBLISHED") revalidatePath(page.slug);
 
   // A new page has no sections yet; the editor expects the key to be present.

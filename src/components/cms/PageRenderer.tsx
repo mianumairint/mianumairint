@@ -1,5 +1,3 @@
-"use client";
-
 import type { PageDTO, PageSectionDTO, PageSectionType } from "@/types/page";
 
 import {
@@ -90,14 +88,17 @@ const FULL_BLEED_FIRST = new Set<PageSectionType>(["HERO", "PRODUCT_BANNERS"]);
 
 /** Renders every visible section of a page in order. */
 export default function PageRenderer({ page }: { page: PageDTO }) {
+  const sections = page.slug === "/"
+    ? page.sections.filter((section) => section.type !== "CERTIFICATIONS")
+    : page.sections;
   return (
     <>
-      {page.sections.map((section, i) => (
+      {sections.map((section, i) => (
         <div
           key={section.id}
           data-section={section.type}
           className={
-            i === 0 && FULL_BLEED_FIRST.has(section.type) ? "-mt-[88px]" : undefined
+            i === 0 && FULL_BLEED_FIRST.has(section.type) ? "md:-mt-[88px]" : undefined
           }
         >
           {renderSection(section)}

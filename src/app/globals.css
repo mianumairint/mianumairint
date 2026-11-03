@@ -10,6 +10,18 @@
   h1, h2, h3, h4 {
     @apply font-headline;
   }
+
+  :where(main, footer, aside) :where(h1, h2, h3, h4, p, a, button, dt, dd, li) {
+    overflow-wrap: anywhere;
+  }
+
+  :where(main, footer, aside) :where(.flex, .grid) > * {
+    min-inline-size: 0;
+  }
+
+  :where(main, footer, aside) :where(a, button) {
+    max-inline-size: 100%;
+  }
 }
 
 @layer components {
@@ -53,7 +65,21 @@
 /* Material Symbols */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  inline-size: 1em;
+  block-size: 1em;
+  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
+
+/* Arabic needs connected glyphs rather than Latin display tracking. */
+:root:lang(ar) :where(.font-label, .font-headline) {
+  letter-spacing: normal;
+}
+
+footer .grid > * { min-width: 0; }
 
 /* WhatsApp pulse */
 @keyframes whatsapp-pulse {

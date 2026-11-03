@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import TrustBar from "@/components/home/TrustBar";
 
 /**
  * CMS-driven versions of the named layout sections. Markup is carried over
@@ -33,7 +34,7 @@ export function HeroSectionCms({ data }: { data: Data }) {
 
   return (
     <section
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-on-primary-fixed via-primary to-primary-container"
+      className="relative min-h-[60svh] md:min-h-screen pt-8 pb-8 md:py-0 flex items-center justify-center overflow-hidden bg-gradient-to-br from-on-primary-fixed via-primary to-primary-container"
       style={
         data.backgroundImage
           ? {
@@ -64,7 +65,7 @@ export function HeroSectionCms({ data }: { data: Data }) {
         {data.heading && (
           <motion.h1
             variants={fadeUp}
-            className="font-headline text-5xl md:text-7xl lg:text-8xl text-white leading-tight mb-6 whitespace-pre-line"
+            className="font-headline text-3xl md:text-7xl lg:text-8xl text-white leading-tight mb-4 md:mb-6 whitespace-pre-line"
           >
             {data.heading}
           </motion.h1>
@@ -107,23 +108,7 @@ export function TrustBarSection({ data }: { data: Data }) {
   const items = asArray(data.items);
   if (!items.length) return null;
 
-  return (
-    <section className="w-full bg-surface-container-low py-6">
-      <div className="flex items-center gap-6 overflow-x-auto hide-scrollbar px-6 md:justify-center">
-        {items.map((item: string, i: number) => (
-          <div key={`${item}-${i}`} className="flex items-center gap-6 shrink-0">
-            {i > 0 && <div className="w-px h-6 bg-outline-variant/30" />}
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-lg">verified</span>
-              <span className="font-label text-sm text-on-surface-variant whitespace-nowrap">
-                {item}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+  return <TrustBar items={items} />;
 }
 
 /* ── FEATURE_CARDS ── */

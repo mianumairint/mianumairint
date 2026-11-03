@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ApiError, withAdmin } from "@/lib/api/route";
 import {
   deletePage,
@@ -57,6 +57,8 @@ export const PUT = withAdmin<{ id: string }>("update page", async (req, { params
   const page = await getPageByIdForAdmin(params.id);
 
   // Refresh both URLs when the slug moved, so neither keeps stale output.
+  revalidateTag(`page:${existing.slug}`);
+  if (page) revalidateTag(`page:${page.slug}`);
   revalidatePath(existing.slug);
   if (page && page.slug !== existing.slug) revalidatePath(page.slug);
 
@@ -78,6 +80,7 @@ export const DELETE = withAdmin<{ id: string }>(
     }
 
     await deletePage(params.id);
+    revalidateTag(`page:${existing.slug}`);
     revalidatePath(existing.slug);
 
     return NextResponse.json({ message: "Page deleted" });

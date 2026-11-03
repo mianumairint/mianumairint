@@ -24,7 +24,7 @@ const fadeUp = {
 export default function HeroSection() {
   return (
     <section
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-on-primary-fixed via-primary to-primary-container"
+      className="relative min-h-[60svh] md:min-h-screen py-8 md:py-0 flex items-center justify-center overflow-hidden bg-gradient-to-br from-on-primary-fixed via-primary to-primary-container"
       style={{
         // The same photograph, served from our own storage. It used to come
         // straight from Unsplash, which made every visit to this fallback a
@@ -54,7 +54,7 @@ export default function HeroSection() {
 
         <motion.h1
           variants={fadeUp}
-          className="font-headline text-5xl md:text-7xl lg:text-8xl text-white leading-tight mb-6 whitespace-pre-line"
+          className="font-headline text-3xl md:text-7xl lg:text-8xl text-white leading-tight mb-4 md:mb-6 whitespace-pre-line"
         >
           {"Exporting Earth's\nPurest Mineral"}
         </motion.h1>

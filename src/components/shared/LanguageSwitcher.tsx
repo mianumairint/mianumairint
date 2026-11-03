@@ -54,18 +54,57 @@ export default function LanguageSwitcher() {
   // to be relied on to execute in the order they were written; assigning the
   // global and then appending the tag leaves nothing to rely on.
   useEffect(() => {
-    if (document.querySelector(`script[src="${WIDGET_SRC}"]`)) return;
+    // Icon-font ligatures are code, not copy. Protect both the initial page and
+    // icons inserted after navigation before the translator sees their text.
+    const protectIcons = (node: Element) => {
+      const protect = (icon: Element) => {
+        icon.setAttribute("translate", "no");
+        icon.classList.add("notranslate");
+      };
+      if (node.matches(".material-symbols-outlined")) protect(node);
+      node.querySelectorAll(".material-symbols-outlined").forEach(protect);
+    };
+    protectIcons(document.body);
+    const icons = new MutationObserver((changes) => {
+      changes.forEach((change) => change.addedNodes.forEach((node) => {
+        if (node instanceof Element) protectIcons(node);
+      }));
+    });
+    icons.observe(document.body, { childList: true, subtree: true });
 
-    (window as unknown as Record<string, unknown>).gtranslateSettings = SETTINGS;
+    const setLanguage = (language: string) => {
+      if (!LANGUAGES.includes(language)) return;
+      document.documentElement.lang = language;
+      document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+      window.dispatchEvent(new Event("site:languagechange"));
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("__GT_TRANSLATE_LANGS") || "null");
+      if (saved?.tgtLang) setLanguage(saved.tgtLang);
+    } catch { /* Storage may be unavailable in private browsing. */ }
+    const onLanguageClick = (event: MouseEvent) => {
+      const language = event.target instanceof Element
+        ? event.target.closest("[data-gt-lang]")?.getAttribute("data-gt-lang") : null;
+      if (language) setLanguage(language);
+    };
+    document.addEventListener("click", onLanguageClick, true);
 
-    const script = document.createElement("script");
-    script.src = WIDGET_SRC;
-    script.defer = true;
-    document.body.appendChild(script);
+    if (!document.querySelector(`script[src="${WIDGET_SRC}"]`)) {
+      (window as unknown as Record<string, unknown>).gtranslateSettings = SETTINGS;
+
+      const script = document.createElement("script");
+      script.src = WIDGET_SRC;
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+    return () => {
+      icons.disconnect();
+      document.removeEventListener("click", onLanguageClick, true);
+    };
   }, []);
 
   // The widget looks for this element and builds itself inside it. It is left
   // in place on unmount: the shop layout persists across navigation, so this
   // runs once, and tearing the widget down would lose the reader's language.
-  return <div className="gtranslate_wrapper" />;
+  return <div className="gtranslate_wrapper notranslate" translate="no" dir="ltr" />;
 }

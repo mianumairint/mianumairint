@@ -7,26 +7,21 @@ const trustItems = [
   "Custom Packaging Available",
 ];
 
-export default function TrustBar() {
+export default function TrustBar({ items = trustItems }: { items?: string[] }) {
   return (
     <section className="w-full bg-surface-container-low py-6">
-      <div className="flex items-center gap-6 overflow-x-auto hide-scrollbar px-6 md:justify-center">
-        {trustItems.map((item, i) => (
-          <div key={item} className="flex items-center gap-6 shrink-0">
-            {i > 0 && (
-              <div className="w-px h-6 bg-outline-variant/30" />
-            )}
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-lg">
+      <ul className="max-w-7xl mx-auto grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 px-6">
+        {items.map((item, i) => (
+          <li key={`${item}-${i}`} className="flex items-start gap-2 min-w-0">
+              <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-primary text-lg">
                 verified
               </span>
-              <span className="font-label text-sm text-on-surface-variant whitespace-nowrap">
+              <span className="font-label text-xs sm:text-sm leading-relaxed text-on-surface-variant">
                 {item}
               </span>
-            </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
