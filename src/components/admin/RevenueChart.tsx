@@ -11,25 +11,15 @@ import {
 } from "recharts";
 import { formatCurrencyCompact as formatCurrency } from "@/lib/format";
 
-// Generate sample revenue data for the last 30 days
-function generateSampleData() {
-  const data = [];
-  const now = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    // Deterministic pseudo-random based on day to avoid hydration mismatch
-    const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
-    const revenue = 500 + ((seed * 9301 + 49297) % 4500);
-    data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      revenue: Math.round(revenue),
-    });
-  }
-  return data;
+export interface RevenuePoint {
+  /** UTC day, YYYY-MM-DD */
+  date: string;
+  revenue: number;
 }
 
-const data = generateSampleData();
+function dayLabel(day: string) {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
 
 function CustomTooltip({
   active,
@@ -53,15 +43,23 @@ function CustomTooltip({
   return null;
 }
 
-export default function RevenueChart() {
+export default function RevenueChart({ data, loading }: { data: RevenuePoint[]; loading?: boolean }) {
+  const points = data.map((d) => ({ date: dayLabel(d.date), revenue: d.revenue }));
+  const empty = !loading && points.every((p) => p.revenue === 0);
   return (
     <div className="bg-surface-container-lowest rounded-xl tonal-shadow p-6">
       <h2 className="font-headline text-lg text-on-surface mb-4">
         Revenue (Last 30 Days)
       </h2>
-      <div className="h-64">
+      <div className="h-64 relative">
+        {loading && <div className="absolute inset-0 rounded-lg bg-on-surface/5 animate-pulse" />}
+        {empty && (
+          <p className="absolute inset-0 z-10 flex items-center justify-center font-label text-sm text-on-surface-variant pointer-events-none">
+            No paid orders in the last 30 days
+          </p>
+        )}
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+          <AreaChart data={points} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#8f473e" stopOpacity={0.2} />

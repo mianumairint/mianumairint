@@ -249,6 +249,49 @@ export async function sumPaidRevenue(): Promise<number> {
   );
 }
 
+/**
+ * Paid revenue per day for the last `days` days, oldest first, with a zero
+ * for every day that had no sales so the chart has no gaps. Days are UTC.
+ */
+export async function dailyPaidRevenue(
+  days = 30
+): Promise<{ date: string; revenue: number }[]> {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setUTCDate(start.getUTCDate() + i);
+    buckets.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  const chunk = 1000;
+  for (let offset = 0; ; offset += chunk) {
+    const rows = await selectMany<{ total: string | number; createdAt: string }>(
+      getUserSupabase()
+        .from(TABLES.order)
+        .select("total,createdAt")
+        .eq("paymentStatus", "PAID")
+        .gte("createdAt", start.toISOString())
+        .order("createdAt", { ascending: true })
+        .range(offset, offset + chunk - 1)
+    );
+    for (const row of rows) {
+      const key = new Date(row.createdAt).toISOString().slice(0, 10);
+      if (buckets.has(key)) buckets.set(key, buckets.get(key)! + (Number(row.total) || 0));
+    }
+    if (rows.length < chunk) break;
+  }
+
+  return Array.from(buckets, ([date, revenue]) => ({
+    date,
+    revenue: Math.round(revenue * 100) / 100,
+  }));
+}
+
 export async function listRecentOrders(
   limit = 5
 ): Promise<Pick<OrderRow, "id" | "orderNumber" | "total" | "status" | "createdAt">[]> {

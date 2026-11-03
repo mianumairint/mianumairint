@@ -1,3 +1,5 @@
+import { yearsInBusiness } from "@/lib/company-age";
+
 const reasons = [
   {
     icon: "factory",
@@ -7,7 +9,7 @@ const reasons = [
   },
   {
     icon: "verified",
-    title: "30 Years of Trust",
+    title: `${yearsInBusiness()} Years of Trust`,
     description:
       "Since 1995, consistent quality and on-time delivery to buyers in 30+ countries worldwide.",
   },

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { currentYear, yearsInBusiness } from "@/lib/company-age";
 
 /* ── Timeline Data ────────────────────────────────────────── */
 
@@ -12,7 +13,7 @@ const timeline = [
   { year: "2010", event: "Canada office established" },
   { year: "2015", event: "ISO & Halal certified" },
   { year: "2020", event: "Online B2B platform launched" },
-  { year: "2025", event: "Exporting to 30+ countries" },
+  { year: String(currentYear()), event: "Exporting to 30+ countries" },
 ];
 
 /* ── Why Different (3 pillars) ────────────────────────────── */
@@ -26,7 +27,7 @@ const pillars = [
   },
   {
     icon: "verified",
-    title: "30 Years of Trust",
+    title: `${yearsInBusiness()} Years of Trust`,
     description:
       "Since 1995, consistent quality and on-time delivery to buyers in 30+ countries worldwide.",
   },
@@ -115,7 +116,7 @@ export default function LegacyAboutPage() {
             custom={0}
           >
             <h2 className="font-headline text-3xl lg:text-4xl text-on-surface mb-6">
-              30 Years of Pure Excellence
+              {yearsInBusiness()} Years of Pure Excellence
             </h2>
             <p className="font-body text-on-surface-variant leading-relaxed mb-6">
               Mian Umair International was founded in 1995 in Faisalabad,

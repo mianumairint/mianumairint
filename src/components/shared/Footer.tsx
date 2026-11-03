@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DUNS_NUMBER } from "@/components/shared/DunsNumber";
 
 /**
  * The categories the catalogue actually carries. The previous list was written
@@ -158,6 +159,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-body text-xs leading-relaxed text-center sm:text-left text-on-surface-variant">
             &copy; {new Date().getFullYear()} Mian Umair International. All Rights Reserved.
+            <span className="block sm:inline sm:ml-2">D&amp;B D-U-N-S&reg;: <span className="tabular-nums select-all">{DUNS_NUMBER}</span></span>
           </p>
           <p className="font-body text-xs leading-relaxed text-center sm:text-right text-on-surface-variant">
             383 Imran Plaza, Layalpur Warehouses, Factory Area, Faisalabad 38000, Punjab, Pakistan
