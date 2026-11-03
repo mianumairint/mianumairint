@@ -11,7 +11,11 @@
 
 # next.js
 /.next/
+/.next-dev/
 /out/
+
+# Local build verification output
+/tmp/
 
 # production
 /build
@@ -29,7 +33,7 @@ yarn-error.log*
 # Ignore every .env variant EXCEPT the committed, secret-free template.
 .env
 .env.*
-!.env.example
+.env.example
 
 # vercel
 .vercel
@@ -38,3 +42,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 config.bat
+.env*

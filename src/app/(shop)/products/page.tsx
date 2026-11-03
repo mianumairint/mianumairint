@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useSearchParams } from "next/navigation";
-import { useCartStore } from "@/store/cart";
+import { useRouter, useSearchParams } from "next/navigation";
 import ProductPrice from "@/components/shared/ProductPrice";
 
 interface Product {
@@ -34,17 +33,25 @@ const sortOptions = [
 
 function ProductsContent() {
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get("category") || "";
+  const router = useRouter();
+  const activeCategory = searchParams.get("category") || "";
+  const searchQuery = searchParams.get("search")?.trim() || "";
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [sort, setSort] = useState("featured");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const addItem = useCartStore((s) => s.addItem);
+
+  const selectCategory = (slug: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (slug) params.set("category", slug);
+    else params.delete("category");
+    const query = params.toString();
+    router.replace(`/products${query ? `?${query}` : ""}`, { scroll: false });
+  };
 
   const fetchProducts = useCallback(
     async (pageNum: number, append = false) => {
@@ -54,6 +61,7 @@ function ProductsContent() {
       try {
         const params = new URLSearchParams();
         if (activeCategory) params.set("category", activeCategory);
+        if (searchQuery) params.set("search", searchQuery);
         if (sort !== "featured") params.set("sort", sort);
         params.set("page", String(pageNum));
         params.set("limit", "12");
@@ -76,7 +84,7 @@ function ProductsContent() {
         setLoadingMore(false);
       }
     },
-    [activeCategory, sort]
+    [activeCategory, searchQuery, sort]
   );
 
   // Fetch categories once
@@ -95,19 +103,6 @@ function ProductsContent() {
   const getImage = (p: Product) => {
     const primary = p.images?.find((img) => img.isPrimary);
     return primary?.url || p.images?.[0]?.url || null;
-  };
-
-  const handleAddToCart = (e: React.MouseEvent, p: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    addItem({
-      productId: p.id,
-      name: p.name,
-      price: Number(p.price),
-      image: getImage(p) || "",
-      quantity: 1,
-      slug: p.slug,
-    });
   };
 
   const handleLoadMore = () => {
@@ -141,7 +136,7 @@ function ProductsContent() {
             <div className="overflow-x-auto hide-scrollbar sm:overflow-visible">
               <div className="flex items-center gap-2 min-w-max sm:min-w-0 sm:flex-wrap">
               <button
-                onClick={() => setActiveCategory("")}
+                onClick={() => selectCategory("")}
                 className={`px-4 py-2 rounded-full font-label text-xs font-medium whitespace-nowrap transition-colors ${
                   !activeCategory
                     ? "bg-secondary-container text-on-secondary-container"
@@ -153,7 +148,7 @@ function ProductsContent() {
               {categories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setActiveCategory(cat.slug)}
+                  onClick={() => selectCategory(cat.slug)}
                   className={`px-4 py-2 rounded-full font-label text-xs font-medium whitespace-nowrap transition-colors ${
                     activeCategory === cat.slug
                       ? "bg-secondary-container text-on-secondary-container"
@@ -233,12 +228,6 @@ function ProductsContent() {
                             <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">image</span>
                           </div>
                         )}
-                        <button
-                          onClick={(e) => handleAddToCart(e, product)}
-                          className="absolute bottom-4 right-4 w-10 h-10 rounded-full mineral-glow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <span className="material-symbols-outlined text-[20px] text-on-primary">add_shopping_cart</span>
-                        </button>
                       </div>
                       <div className="p-5">
                         <h3 className="font-headline text-xl text-primary">{product.name}</h3>

@@ -5,9 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useCartStore } from "@/store/cart";
-import ProductPrice, { isQuoteOnly } from "@/components/shared/ProductPrice";
-import { formatPrice } from "@/lib/format";
+import ProductPrice from "@/components/shared/ProductPrice";
 
 interface ProductImage {
   id: string;
@@ -75,10 +73,8 @@ export default function ProductDetailPage() {
   const [related, setRelated] = useState<RelatedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
-  const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("Overview");
   const [mainImage, setMainImage] = useState<string | null>(null);
-  const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -88,6 +84,8 @@ export default function ProductDetailPage() {
           const data = await res.json();
           const p = data.product || data;
           setProduct(p);
+          // Render the product immediately; related items load separately.
+          setLoading(false);
           // Set main image
           const primary = p.images?.find((img: ProductImage) => img.isPrimary);
           setMainImage(primary?.url || p.images?.[0]?.url || null);
@@ -112,21 +110,6 @@ export default function ProductDetailPage() {
     }
     fetchProduct();
   }, [params.slug]);
-
-  const handleAddToCart = () => {
-    if (!product) return;
-    const price = selectedVariant?.price ? Number(selectedVariant.price) : Number(product.price);
-    addItem({
-      productId: product.id,
-      variantId: selectedVariant?.id,
-      variantLabel: selectedVariant?.label,
-      name: product.name,
-      price,
-      image: mainImage || "",
-      quantity,
-      slug: product.slug,
-    });
-  };
 
   const getImage = (p: RelatedProduct) => {
     const primary = p.images?.find((img) => img.isPrimary);
@@ -282,39 +265,11 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity */}
-            <div className="mt-6">
-              <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-3">Quantity</p>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors">
-                  <span className="material-symbols-outlined text-lg">remove</span>
-                </button>
-                <span className="font-headline text-lg text-on-surface w-8 text-center">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors">
-                  <span className="material-symbols-outlined text-lg">add</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            {/* A product with no public price cannot be added to a basket --
-                doing so would build a $0.00 order -- so the quote link becomes
-                the only, and primary, call to action. */}
+            {/* Trade enquiries go directly to the export team. */}
             <div className="mt-8 flex flex-col gap-3">
-              {!isQuoteOnly(currentPrice) && (
-                <button onClick={handleAddToCart} className="mineral-glow w-full py-4 rounded-xl font-label font-semibold text-sm text-on-primary">
-                  Add to Cart — {formatPrice(currentPrice * quantity)}
-                </button>
-              )}
               <Link
                 href="/quote"
-                className={
-                  isQuoteOnly(currentPrice)
-                    ? "mineral-glow w-full py-4 rounded-xl font-label font-semibold text-sm text-on-primary text-center"
-                    : "border border-outline-variant/40 text-primary w-full py-4 rounded-xl font-label font-semibold text-sm hover:bg-primary/5 transition-colors text-center"
-                }
+                className="mineral-glow w-full py-4 rounded-xl font-label font-semibold text-sm text-on-primary text-center"
               >
                 Request Bulk Quote
               </Link>
@@ -414,7 +369,7 @@ export default function ProductDetailPage() {
                     <div className="p-4 flex flex-col flex-1">
                       <h3 className="font-headline text-lg text-primary group-hover:underline">{rp.name}</h3>
                       <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">{rp.category?.name}</p>
-                      <p className="font-headline text-base text-primary mt-auto pt-2">${Number(rp.price).toFixed(2)}</p>
+                      <div className="mt-auto pt-2"><ProductPrice price={rp.price} /></div>
                     </div>
                   </div>
                 </Link>

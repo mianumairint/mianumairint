@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { ApiError, omit, withAdmin } from "@/lib/api/route";
 import {
   getUserSupabase,
@@ -31,6 +32,7 @@ export const POST = withAdmin("create SEO meta", async (req) => {
       .single()
   );
 
+  revalidateTag("public-seo");
   return NextResponse.json({ entry }, { status: 201 });
 });
 
@@ -49,5 +51,6 @@ export const PUT = withAdmin("update SEO meta", async (req) => {
       .single()
   );
 
+  revalidateTag("public-seo");
   return NextResponse.json({ entry });
 });

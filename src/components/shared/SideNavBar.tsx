@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUIStore } from "@/store/ui";
-import { useCartStore } from "@/store/cart";
 import { motion, AnimatePresence } from "framer-motion";
 
 const sideLinks = [
@@ -19,7 +18,6 @@ const sideLinks = [
 export default function SideNavBar() {
   const pathname = usePathname();
   const { isSideNavOpen, closeSideNav, openSearch } = useUIStore();
-  const openCart = useCartStore((s) => s.openCart);
 
   return (
     <AnimatePresence>
@@ -40,12 +38,12 @@ export default function SideNavBar() {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "tween", duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className="fixed top-0 left-0 bottom-0 w-80 bg-surface z-50 shadow-2xl flex flex-col"
+            className="fixed top-0 left-0 bottom-0 w-80 max-w-full bg-surface z-50 shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4">
               <div>
-                <h2 className="font-headline text-xl text-primary font-bold">
+                <h2 translate="no" className="notranslate font-headline text-xl text-primary font-bold">
                   Mian Umair International
                 </h2>
                 <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mt-0.5">
@@ -81,7 +79,7 @@ export default function SideNavBar() {
                     }`}
                   >
                     <span className="material-symbols-outlined text-[20px]">{link.icon}</span>
-                    {link.label}
+                    <span>{link.label}</span>
                   </Link>
                 );
               })}
@@ -106,15 +104,6 @@ export default function SideNavBar() {
                   className="p-2 rounded-xl hover:bg-surface-container transition-colors"
                 >
                   <span className="material-symbols-outlined text-on-surface-variant">search</span>
-                </button>
-                <button
-                  onClick={() => {
-                    closeSideNav();
-                    openCart();
-                  }}
-                  className="p-2 rounded-xl hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-on-surface-variant">shopping_bag</span>
                 </button>
               </div>
             </div>

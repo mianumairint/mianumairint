@@ -118,7 +118,7 @@ export default function CategoriesGrid() {
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          <div className="overflow-hidden">
+          <div className="overflow-hidden" dir="ltr">
             <div
               className="flex transition-transform duration-700 ease-out"
               style={{ transform: `translateX(-${index * (100 / visible)}%)` }}
@@ -147,8 +147,8 @@ export default function CategoriesGrid() {
                           picture above it keeps its own colour. */}
                       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent" />
 
-                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                        <h3 className="font-headline text-lg md:text-xl leading-tight drop-shadow">
+                      <div dir="auto" className="absolute inset-x-0 bottom-0 p-2 sm:p-4 text-white">
+                        <h3 className="font-headline text-sm sm:text-lg md:text-xl leading-tight drop-shadow">
                           {cat.name}
                         </h3>
                         <span className="font-label text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-500">

@@ -8,7 +8,7 @@ import LegacyContactPage from "@/components/pages/legacy/contact";
  * If the page is set to Draft it 404s — it must NOT fall back to the legacy
  * component, or unpublishing would have no public effect.
  */
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function ContactRoute() {
   const resolved = await resolveSystemPage("/contact");

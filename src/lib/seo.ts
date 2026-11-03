@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { getSupabase, selectOne } from "@/lib/supabase/server";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import { getContentSupabase, selectOne } from "@/lib/supabase/server";
 import { TABLES, type SeoGlobalSettingsRow, type SeoMetaRow } from "@/lib/supabase/types";
 import { getPageSeo } from "@/lib/pages/getPage";
+import { DEFAULT_SHARE_IMAGE } from "@/lib/branding";
 
 /**
  * PAGE SEO
@@ -37,7 +40,7 @@ const FALLBACK: SeoMetaResult = {
   canonicalUrl: null,
   ogTitle: null,
   ogDescription: null,
-  ogImage: null,
+  ogImage: DEFAULT_SHARE_IMAGE.url,
   ogType: "website",
   twitterCard: "summary_large_image",
   twitterTitle: null,
@@ -70,26 +73,28 @@ function fromGlobalSettings(settings: SeoGlobalSettingsRow | null): SeoMetaResul
     ...FALLBACK,
     title: settings?.homeTitle || SITE_NAME,
     metaDesc: settings?.defaultMetaDesc || "",
-    ogImage: settings?.defaultOgImage || null,
+    ogImage: settings?.defaultOgImage || DEFAULT_SHARE_IMAGE.url,
     noIndex: !(settings?.defaultRobotsIndex ?? true),
     noFollow: !(settings?.defaultRobotsFollow ?? true),
   };
 }
 
-export async function getSeoGlobalSettings(): Promise<SeoGlobalSettingsRow | null> {
+export const getSeoGlobalSettings = unstable_cache(async (): Promise<SeoGlobalSettingsRow | null> => {
   return selectOne<SeoGlobalSettingsRow>(
-    getSupabase().from(TABLES.seoGlobalSettings).select("*").limit(1).maybeSingle()
+    getContentSupabase().from(TABLES.seoGlobalSettings).select("*").limit(1).maybeSingle()
   );
-}
+}, ["public-seo-settings"], { revalidate: 60, tags: ["public-seo"] });
+
+const loadSeoMeta = cache(unstable_cache(async (slug: string): Promise<SeoMetaResult> => {
+  const entry = await selectOne<SeoMetaRow>(
+    getContentSupabase().from(TABLES.seoMeta).select("*").eq("slug", slug).limit(1).maybeSingle()
+  );
+  return entry ? fromEntry(entry) : fromGlobalSettings(await getSeoGlobalSettings());
+}, ["public-seo-meta"], { revalidate: 60, tags: ["public-seo"] }));
 
 export async function getSeoMeta(slug: string): Promise<SeoMetaResult> {
   try {
-    const entry = await selectOne<SeoMetaRow>(
-      getSupabase().from(TABLES.seoMeta).select("*").eq("slug", slug).limit(1).maybeSingle()
-    );
-    if (entry) return fromEntry(entry);
-
-    return fromGlobalSettings(await getSeoGlobalSettings());
+    return await loadSeoMeta(slug);
   } catch (error) {
     console.error(`getSeoMeta("${slug}") failed:`, error);
     return FALLBACK;
@@ -101,7 +106,8 @@ export function buildMetadata(seo: SeoMetaResult, slug: string): Metadata {
   if (seo.noIndex) robots.index = false;
   if (seo.noFollow) robots.follow = false;
 
-  const socialImage = seo.twitterImage || seo.ogImage;
+  const openGraphImage = seo.ogImage || DEFAULT_SHARE_IMAGE.url;
+  const socialImage = seo.twitterImage || openGraphImage;
 
   return {
     title: seo.title,
@@ -112,13 +118,13 @@ export function buildMetadata(seo: SeoMetaResult, slug: string): Metadata {
       url: `${SITE_URL}${slug}`,
       siteName: SITE_NAME,
       type: (seo.ogType as "website" | "article") || "website",
-      ...(seo.ogImage ? { images: [{ url: seo.ogImage }] } : {}),
+      images: [openGraphImage === DEFAULT_SHARE_IMAGE.url ? DEFAULT_SHARE_IMAGE : { url: openGraphImage }],
     },
     twitter: {
       card: (seo.twitterCard as "summary" | "summary_large_image") || "summary_large_image",
       title: seo.twitterTitle || seo.ogTitle || seo.title,
       description: seo.twitterDesc || seo.ogDescription || seo.metaDesc || undefined,
-      ...(socialImage ? { images: [socialImage] } : {}),
+      images: [socialImage],
     },
     ...(seo.noIndex || seo.noFollow ? { robots } : {}),
     alternates: { canonical: seo.canonicalUrl || `${SITE_URL}${slug}` },

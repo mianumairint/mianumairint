@@ -450,9 +450,6 @@ export default function AccountPage() {
                           <p className="font-headline text-primary font-bold mt-1">{item.price}</p>
                         </div>
                         <div className="flex flex-col gap-2">
-                          <button className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Add to Cart">
-                            <span className="material-symbols-outlined text-[18px] text-primary">add_shopping_cart</span>
-                          </button>
                           <button className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center hover:bg-error/20 transition-colors" title="Remove">
                             <span className="material-symbols-outlined text-[18px] text-error">delete</span>
                           </button>

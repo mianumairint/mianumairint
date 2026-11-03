@@ -44,7 +44,7 @@ export default function SearchModal() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search products..."
-                className="flex-1 bg-transparent font-body text-lg text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent font-body text-lg text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none"
                 autoFocus
               />
               <button

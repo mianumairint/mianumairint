@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/shared/AuthProvider";
-import { useCartStore } from "@/store/cart";
 import { useUIStore } from "@/store/ui";
 
 interface Category {
@@ -25,20 +24,64 @@ const navLinks = [
 export default function TopNavBar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const totalItems = useCartStore((s) => s.totalItems);
-  const openCart = useCartStore((s) => s.openCart);
   const { openSideNav, openSearch } = useUIStore();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [productsOpen, setProductsOpen] = useState(false);
   const productsMenu = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const brand = useRef<HTMLAnchorElement>(null);
+  const links = useRef<HTMLDivElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
+  const hamburger = useRef<HTMLButtonElement>(null);
+  const [compact, setCompact] = useState(false);
+
+  // Translations have different widths. Use the drawer whenever the actual
+  // labels no longer fit, including at laptop widths and browser zoom levels.
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      if (!bar.current || !links.current || !brand.current || !actions.current) return;
+      const style = getComputedStyle(bar.current);
+      const navGap = parseFloat(getComputedStyle(links.current).columnGap) || 0;
+      const children = Array.from(links.current.children);
+      const required = children.reduce((width, child) => width + child.getBoundingClientRect().width, 0)
+        + Math.max(0, children.length - 1) * navGap;
+      const burgerWidth = hamburger.current?.getBoundingClientRect().width || 0;
+      const actionGap = parseFloat(getComputedStyle(actions.current).columnGap) || 0;
+      const normalActions = actions.current.getBoundingClientRect().width - burgerWidth - (burgerWidth ? actionGap : 0);
+      const available = bar.current.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+        - brand.current.getBoundingClientRect().width - normalActions - 2 * (parseFloat(style.columnGap) || 0);
+      setCompact(window.innerWidth >= 1024 && required > available);
+    };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    const resize = new ResizeObserver(schedule);
+    [bar.current, brand.current, links.current, actions.current].forEach((node) => { if (node) resize.observe(node); });
+    const copy = new MutationObserver(schedule);
+    if (bar.current) copy.observe(bar.current, { childList: true, characterData: true, subtree: true });
+    window.addEventListener("resize", schedule);
+    window.addEventListener("site:languagechange", schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect(); copy.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("site:languagechange", schedule);
+    };
+  }, []);
 
   useEffect(() => {
+    links.current?.toggleAttribute("inert", compact);
+    if (compact) setProductsOpen(false);
+  }, [compact]);
+
+  useEffect(() => {
+    if (!productsOpen || categories.length > 0) return;
     fetch("/api/categories")
       .then((res) => res.json())
       .then((data) => setCategories(data.categories || []))
       .catch(() => setCategories([]));
-  }, []);
+  }, [productsOpen, categories.length]);
 
   // Closed on a click anywhere else and on Escape, so the panel cannot be
   // left hanging over the page after the pointer has moved on.
@@ -64,7 +107,7 @@ export default function TopNavBar() {
   useEffect(() => setProductsOpen(false), [pathname]);
 
   const linkClass = (href: string) =>
-    `font-body text-[15px] tracking-tight transition-colors hover:text-primary ${
+    `shrink-0 whitespace-nowrap font-body text-sm xl:text-[15px] tracking-tight transition-colors hover:text-primary ${
       pathname === href ? "text-primary border-b-2 border-primary pb-0.5" : "text-on-surface"
     }`;
 
@@ -74,9 +117,9 @@ export default function TopNavBar() {
     // PageRenderer pulls a hero up underneath it.
     <header className="fixed top-3 sm:top-4 left-0 right-0 z-50">
       <nav className="max-w-7xl mx-auto px-3 sm:px-6">
-        <div className="flex items-center justify-between gap-4 h-16 pl-4 pr-3 sm:pl-5 sm:pr-4 rounded-full glass-nav tonal-shadow">
+        <div ref={bar} dir="ltr" className="relative flex items-center justify-between gap-3 xl:gap-4 h-16 pl-4 pr-3 sm:pl-5 sm:pr-4 rounded-full glass-nav tonal-shadow">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0" aria-label="Mian Umair International — home">
+          <Link ref={brand} href="/" translate="no" className="notranslate flex items-center gap-2.5 shrink-0" aria-label="Mian Umair International — home">
             <Image
               src="/images/brand/logo.webp"
               alt="Mian Umair International"
@@ -85,7 +128,7 @@ export default function TopNavBar() {
               priority
               className="w-10 h-10 sm:w-11 sm:h-11 object-contain"
             />
-            <span className="hidden lg:flex flex-col leading-none">
+            <span className="hidden xl:flex flex-col leading-none">
               <span className="font-headline text-base text-primary font-bold tracking-tight whitespace-nowrap">
                 Mian Umair International
               </span>
@@ -96,44 +139,50 @@ export default function TopNavBar() {
           </Link>
 
           {/* Desktop Links */}
-          <div className="hidden md:flex items-center gap-7 flex-1 justify-center">
+          <div ref={links} aria-hidden={compact || undefined} className={`hidden lg:flex items-center gap-4 xl:gap-6 ${compact ? "absolute invisible pointer-events-none w-max" : "min-w-0 flex-1 justify-center"}`}>
             {navLinks.map((link) =>
               link.label === "Products" ? (
                 <div
                   key={link.href}
                   ref={productsMenu}
-                  className="relative"
+                  className="relative flex items-center gap-0.5"
                   onMouseEnter={() => setProductsOpen(true)}
                   onMouseLeave={() => setProductsOpen(false)}
                 >
+                  <Link href={link.href} className={linkClass(link.href)}>
+                    <span dir="auto">{link.label}</span>
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setProductsOpen((open) => !open)}
+                    aria-label="Browse product categories"
                     aria-expanded={productsOpen}
                     aria-haspopup="true"
-                    className={`${linkClass(link.href)} flex items-center gap-0.5`}
+                    aria-controls="product-categories-menu"
+                    className="flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-on-surface hover:bg-surface-container hover:text-primary"
                   >
-                    {link.label}
-                    <span
-                      className={`material-symbols-outlined text-[18px] transition-transform ${
+                    <svg
+                      aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                      className={`h-4 w-4 transition-transform ${
                         productsOpen ? "rotate-180" : ""
                       }`}
                     >
-                      expand_more
-                    </span>
+                      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
 
-                  {productsOpen && categories.length > 0 && (
+                  {productsOpen && (
                     // Sits on a bridge of padding, so the pointer can travel
                     // from the trigger to the panel without crossing a gap
                     // that would close it.
                     <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4">
-                      <div className="w-[34rem] max-w-[90vw] bg-surface-container-lowest rounded-2xl tonal-shadow p-3">
+                      <div id="product-categories-menu" className="w-[34rem] max-w-[90vw] max-h-[calc(100svh-7rem)] overflow-y-auto bg-surface-container-lowest rounded-2xl tonal-shadow p-3">
                         <div className="grid grid-cols-2 gap-1">
                           {categories.map((cat) => (
                             <Link
                               key={cat.slug}
                               href={`/products?category=${cat.slug}`}
+                              onClick={() => setProductsOpen(false)}
                               className="font-body text-sm text-on-surface px-3 py-2 rounded-lg hover:bg-surface-container hover:text-primary transition-colors"
                             >
                               {cat.name}
@@ -142,6 +191,7 @@ export default function TopNavBar() {
                         </div>
                         <Link
                           href="/products"
+                          onClick={() => setProductsOpen(false)}
                           className="mt-2 block text-center font-label text-xs uppercase tracking-widest text-primary px-3 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"
                         >
                           All Products &rarr;
@@ -152,54 +202,40 @@ export default function TopNavBar() {
                 </div>
               ) : (
                 <Link key={link.href} href={link.href} className={linkClass(link.href)}>
-                  {link.label}
+                  <span dir="auto">{link.label}</span>
                 </Link>
               )
             )}
           </div>
 
           {/* Right Icons */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div ref={actions} className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={openSearch}
-              className="p-2 rounded-xl hover:bg-surface-container transition-colors"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container transition-colors"
               aria-label="Search"
             >
-              <span className="material-symbols-outlined text-on-surface">search</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6 text-on-surface">
+                <circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" strokeLinecap="round" />
+              </svg>
             </button>
 
             {/* Account / Login */}
             <Link
               href={user ? "/account" : "/auth/login"}
-              className="hidden md:flex p-2 rounded-xl hover:bg-surface-container transition-colors"
+              className="hidden xl:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container transition-colors"
               aria-label={user ? "My Account" : "Sign In"}
             >
-              <span
-                className={`material-symbols-outlined ${user ? "text-primary" : "text-on-surface"}`}
-                style={user ? { fontVariationSettings: "'FILL' 1" } : {}}
-              >
-                account_circle
-              </span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={`h-6 w-6 ${user ? "text-primary" : "text-on-surface"}`}>
+                <circle cx="12" cy="12" r="9" /><circle cx="12" cy="9" r="3" /><path d="M5.5 18.3a7 7 0 0 1 13 0" strokeLinecap="round" />
+              </svg>
             </Link>
-
-            <button
-              onClick={openCart}
-              className="p-2 rounded-xl hover:bg-surface-container transition-colors relative"
-              aria-label="Cart"
-            >
-              <span className="material-symbols-outlined text-on-surface">shopping_bag</span>
-              {totalItems() > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-on-primary mineral-glow rounded-full badge-pulse">
-                  {totalItems()}
-                </span>
-              )}
-            </button>
 
             <a
               href="https://wa.me/14372259136"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex p-2 rounded-xl hover:bg-surface-container transition-colors"
+              className="hidden xl:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container transition-colors"
               aria-label="WhatsApp"
             >
               <svg className="w-6 h-6 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
@@ -211,18 +247,21 @@ export default function TopNavBar() {
                 so it is a button rather than one more link in the row. */}
             <Link
               href="/quote"
-              className="hidden sm:inline-block mineral-glow text-on-primary font-label text-xs uppercase tracking-widest px-5 py-2.5 rounded-full whitespace-nowrap ml-1"
+              className="hidden sm:inline-flex max-w-48 shrink-0 items-center justify-center text-center break-words mineral-glow text-on-primary font-label text-xs uppercase tracking-widest px-4 xl:px-5 py-2.5 rounded-full ml-1"
             >
-              Get a Quote
+              <span dir="auto">Get a Quote</span>
             </Link>
 
             {/* Mobile hamburger */}
             <button
+              ref={hamburger}
               onClick={openSideNav}
-              className="md:hidden p-2 rounded-xl hover:bg-surface-container transition-colors"
+              className={`${compact ? "flex" : "flex lg:hidden"} h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container transition-colors`}
               aria-label="Menu"
             >
-              <span className="material-symbols-outlined text-on-surface">menu</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6 text-on-surface">
+                <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
         </div>

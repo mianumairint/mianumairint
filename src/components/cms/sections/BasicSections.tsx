@@ -163,7 +163,7 @@ export function CtaBannerSection({ data }: { data: Data }) {
           {data.ctaLabel && (
             <Link
               href={data.ctaHref || "/quote"}
-              className="bg-white text-primary font-label font-semibold px-8 py-3.5 rounded-xl hover:bg-white/90 transition-colors shrink-0"
+              className="bg-white text-primary font-label font-semibold px-8 py-3.5 rounded-xl hover:bg-white/90 transition-colors text-center md:max-w-[45%]"
             >
               {data.ctaLabel}
             </Link>

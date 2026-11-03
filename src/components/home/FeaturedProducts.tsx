@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCartStore } from "@/store/cart";
-import ProductPrice, { isQuoteOnly } from "@/components/shared/ProductPrice";
+import ProductPrice from "@/components/shared/ProductPrice";
 
 interface Product {
   id: string;
@@ -18,7 +17,6 @@ interface Product {
 export default function FeaturedProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -40,17 +38,6 @@ export default function FeaturedProducts() {
   const getImage = (p: Product) => {
     const primary = p.images?.find((img) => img.isPrimary);
     return primary?.url || p.images?.[0]?.url || null;
-  };
-
-  const handleAddToCart = (p: Product) => {
-    addItem({
-      productId: p.id,
-      name: p.name,
-      price: Number(p.price),
-      image: getImage(p) || "",
-      quantity: 1,
-      slug: p.slug,
-    });
   };
 
   return (
@@ -120,23 +107,14 @@ export default function FeaturedProducts() {
                     <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mt-1">
                       {product.category?.name || ""}
                     </p>
-                    <div className="flex items-center justify-between pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
                       <ProductPrice price={product.price} />
-                      {isQuoteOnly(product.price) ? (
-                        <Link
-                          href="/quote"
-                          className="mineral-glow px-4 py-2 rounded-lg font-label font-semibold text-xs text-on-primary"
-                        >
-                          Get a Quote
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => handleAddToCart(product)}
-                          className="mineral-glow px-4 py-2 rounded-lg font-label font-semibold text-xs text-on-primary"
-                        >
-                          Add to Cart
-                        </button>
-                      )}
+                      <Link
+                        href="/quote"
+                        className="mineral-glow px-4 py-2 rounded-lg font-label font-semibold text-xs text-on-primary"
+                      >
+                        Get a Quote
+                      </Link>
                     </div>
                   </div>
                 </div>

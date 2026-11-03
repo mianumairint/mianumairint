@@ -10,7 +10,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/seo";
  * If the page is set to Draft it 404s — it must NOT fall back to the legacy
  * component, or unpublishing would have no public effect.
  */
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type Office = Record<string, any>;
 

@@ -13,7 +13,6 @@ import WhyChooseUs from "@/components/home/WhyChooseUs";
 import QuoteCTA from "@/components/home/QuoteCTA";
 import Testimonials from "@/components/home/Testimonials";
 import BlogPreview from "@/components/home/BlogPreview";
-import Certifications from "@/components/home/Certifications";
 
 /**
  * The home page renders CMS content when the "/" page has been imported and
@@ -21,8 +20,8 @@ import Certifications from "@/components/home/Certifications";
  * the original hardcoded sections, so the live site never goes blank.
  */
 
-// CMS content can change at any time; don't serve an indefinitely cached HTML.
-export const dynamic = "force-dynamic";
+// Refresh public content every minute; admin saves invalidate it immediately.
+export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
   const pageSeo = await getPageSeo("/");
@@ -52,7 +51,6 @@ export default async function HomePage() {
       <QuoteCTA />
       <Testimonials />
       <BlogPreview />
-      <Certifications />
     </>
   );
 }

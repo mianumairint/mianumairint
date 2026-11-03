@@ -64,6 +64,19 @@ function assertServerSide(fn: string): void {
 // Reused across hot reloads in development so each edit does not leak a client.
 const globalForSupabase = globalThis as unknown as { supabase?: SupabaseClient };
 
+let contentClient: SupabaseClient | undefined;
+
+/** Anonymous CMS/SEO reads, used only inside explicit Next.js cache boundaries.
+ * Do not force no-store here: Next 14 otherwise cancels static rendering even
+ * inside unstable_cache. Account and dashboard reads keep their uncached client.
+ */
+export function getContentSupabase(): SupabaseClient {
+  assertServerSide("getContentSupabase");
+  return contentClient ??= createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 /**
  * Anonymous client for public reads. Safe to use in a cached route: it touches
  * no cookies and so never personalises a cached response.

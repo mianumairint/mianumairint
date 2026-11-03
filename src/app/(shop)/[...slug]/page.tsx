@@ -14,8 +14,8 @@ import PageRenderer from "@/components/cms/PageRenderer";
  * Only PUBLISHED pages resolve; a draft or unknown slug is a 404.
  */
 
-// Content is editable at any time, so don't cache this render indefinitely.
-export const dynamic = "force-dynamic";
+// Admin saves invalidate the page; database-side edits refresh within a minute.
+export const revalidate = 60;
 
 function toSlug(parts: string[] | undefined): string {
   return `/${(parts ?? []).join("/")}`.replace(/\/+$/, "") || "/";
